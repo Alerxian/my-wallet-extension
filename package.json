@@ -49,12 +49,14 @@
   },
   "manifest": {
     "host_permissions": [
-      "https://*/*"
+      "https://*/*",
+      "http://*/*"
     ],
     "permissions": [
       "storage",
       "tabs",
-      "scripting"
+      "scripting",
+      "runtime"
     ]
   }
 }

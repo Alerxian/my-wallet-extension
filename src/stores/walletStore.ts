@@ -5,6 +5,7 @@ import { persist } from "zustand/middleware"
 
 import {
   DEFAULT_NETWORK,
+  type ConnectedSite,
   type WalletAccount,
   type WalletNetwork,
   type WalletState,
@@ -18,7 +19,7 @@ interface WalletStore extends WalletState {
     password: string
   ) => Promise<{ mnemonic: string; account: WalletAccount }>
   /** 导入钱包 */
-  importWallet: (mnemonic: string, password: string) => Promise<WalletAccount>
+  // importWallet: (mnemonic: string, password: string) => Promise<WalletAccount>
   /** 导入私钥 */
   importPrivateKey: (
     privateKey: string,
@@ -32,20 +33,28 @@ interface WalletStore extends WalletState {
 
   // account manage
   createAccount: (password: string, name?: string) => Promise<WalletAccount>
-  updateAccount: (address: string, name: string) => void
+  updateAccountName: (address: string, name: string) => void
   switchAccount: (address: string) => void
 
   // network manage
-  createNetwork: (network: WalletNetwork) => void
+  addNetwork: (network: WalletNetwork) => void
   switchNetwork: (networkId: string) => void
 
   // token manage
   addToken: (token: WalletToken) => void
   updateTokenBalance: (address: string, balance: string) => void
   removeToken: (address: string) => void
-  // util
+  addConnectedSite: (site: ConnectedSite) => void
+  removeConnectedSite: (origin: string) => void
 
+  // util
   getProvider: () => ethers.JsonRpcProvider | null
+
+  // 拓展
+  connect: () => Promise<WalletAccount>
+  signMessage: (message: string) => Promise<string>
+  disconnect: () => void
+  isValidPassword: (password: string) => boolean
 }
 
 const initialState: WalletState = {
@@ -57,10 +66,11 @@ const initialState: WalletState = {
   password: null,
   networks: DEFAULT_NETWORK,
   currentNetwork: DEFAULT_NETWORK[0],
-  token: []
+  token: [],
+  connectedSites: []
 }
 
-export const useWalletStore = create<Partial<WalletStore>>()(
+export const useWalletStore = create<WalletStore>()(
   persist(
     (set, get) => ({
       ...initialState,
@@ -77,14 +87,17 @@ export const useWalletStore = create<Partial<WalletStore>>()(
           index: 0
         }
 
+        const encryptedPassword = SHA256(password).toString()
         // 加密助记词
-        const encryptedMnemonic = AES.encrypt(mnemonic, password).toString()
+        const encryptedMnemonic = AES.encrypt(
+          mnemonic,
+          encryptedPassword
+        ).toString()
         // 加密privateKey
         const encryptedPrivateKey = AES.encrypt(
           wallet.privateKey,
-          password
+          encryptedPassword
         ).toString()
-        const encryptedPassword = SHA256(password).toString()
 
         set({
           isLocked: false,
@@ -112,9 +125,13 @@ export const useWalletStore = create<Partial<WalletStore>>()(
             throw new Error("Account already exists")
           }
 
+          const state = get()
+          if (!state.isValidPassword(password)) {
+            throw new Error("密码错误")
+          }
           const encryptedPrivateKey = AES.encrypt(
             wallet.privateKey,
-            password
+            state.password
           ).toString()
 
           const newAccount: WalletAccount = {
@@ -135,6 +152,16 @@ export const useWalletStore = create<Partial<WalletStore>>()(
           throw error
         }
       },
+      lockWallet: () => {
+        set({ isLocked: true })
+      },
+      unlockWallet: (password) => {
+        const state = get()
+        if (!state.isValidPassword(password)) return false
+
+        set({ isLocked: false })
+        return true
+      },
       createAccount: async (password, name) => {
         const state = get()
         if (!state.mnemonic) {
@@ -142,8 +169,10 @@ export const useWalletStore = create<Partial<WalletStore>>()(
         }
 
         try {
-          // 解密助记词
-          const mnemonicBytes = AES.decrypt(state.mnemonic, password)
+          if (!state.isValidPassword(password)) {
+            throw new Error("密码错误")
+          }
+          const mnemonicBytes = AES.decrypt(state.mnemonic, state.password)
           const mnemonic = mnemonicBytes.toString(enc.Utf8)
 
           if (!mnemonic) {
@@ -164,7 +193,7 @@ export const useWalletStore = create<Partial<WalletStore>>()(
 
           const encryptedPrivateKey = AES.encrypt(
             wallet.privateKey,
-            password
+            state.password
           ).toString()
 
           const newAccount: WalletAccount = {
@@ -199,6 +228,13 @@ export const useWalletStore = create<Partial<WalletStore>>()(
           return null
         }
       },
+      addNetwork: (network) => {
+        const networks = get().networks
+        const exists = networks.find((n) => n.id === network.id)
+        if (!exists) {
+          set({ networks: [...networks, network] })
+        }
+      },
       switchNetwork(networkId) {
         const network = get().networks.find((n) => n.id === networkId)
         if (!network) {
@@ -211,6 +247,88 @@ export const useWalletStore = create<Partial<WalletStore>>()(
         if (account) {
           set({ currentAccount: account })
         }
+      },
+      updateAccountName: (address, name) => {
+        set((state) => ({
+          accounts: state.accounts.map((acc) =>
+            acc.address === address ? { ...acc, name } : acc
+          ),
+          currentAccount: { ...state.currentAccount, name }
+        }))
+      },
+      addToken: (token) => {
+        const tokens = get().token
+        const exists = tokens.find(
+          (t) => t.address.toLowerCase() === token.address.toLowerCase()
+        )
+        if (!exists) {
+          set({ token: [...tokens, token] })
+        }
+      },
+      updateTokenBalance: (address, balance) => {
+        const tokens = get().token
+        const next = tokens.map((t) =>
+          t.address.toLowerCase() === address.toLowerCase()
+            ? { ...t, balance }
+            : t
+        )
+        set({ token: next })
+      },
+      removeToken: (address) => {
+        const tokens = get().token
+        set({
+          token: tokens.filter(
+            (t) => t.address.toLowerCase() !== address.toLowerCase()
+          )
+        })
+      },
+      addConnectedSite: (site) => {
+        const { connectedSites } = get()
+        const exists = connectedSites.find((s) => s.origin === site.origin)
+        if (!exists) {
+          set({ connectedSites: [...connectedSites, site] })
+        }
+      },
+      removeConnectedSite: (origin) => {
+        const { connectedSites } = get()
+        set({
+          connectedSites: connectedSites.filter((s) => s.origin !== origin)
+        })
+      },
+      isValidPassword: (password: string) => {
+        const state = get()
+        const inputHash = SHA256(password).toString()
+        return inputHash === state.password
+      },
+      connect: async () => {
+        const state = get()
+        if (!state.currentAccount) {
+          throw new Error("No account selected")
+        }
+        set({ isConnected: true, currentAccount: state.currentAccount })
+        return state.currentAccount
+      },
+      disconnect: () => {
+        set({ isConnected: false })
+      },
+      signMessage: (message) => {
+        const state = get()
+        if (!state.currentAccount) {
+          throw new Error("No account selected")
+        }
+
+        // 解密获得privateKey
+        const privateKey = AES.decrypt(
+          state.currentAccount.privateKey,
+          state.password
+        ).toString(enc.Utf8)
+
+        if (!privateKey) {
+          throw new Error("密码错误或数据损坏")
+        }
+
+        const wallet = new Wallet(privateKey)
+        return wallet.signMessage(message)
       }
     }),
     {
@@ -236,7 +354,8 @@ export const useWalletStore = create<Partial<WalletStore>>()(
         password: state.password,
         networks: state.networks,
         currentNetwork: state.currentNetwork,
-        token: state.token
+        token: state.token,
+        connectedSites: state.connectedSites
       })
     }
   )

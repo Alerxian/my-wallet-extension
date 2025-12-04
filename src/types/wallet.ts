@@ -26,6 +26,14 @@ export interface WalletState {
   currentNetwork: WalletNetwork | null
   /** 钱包代币列表 */
   token: WalletToken[]
+  connectedSites: ConnectedSite[]
+}
+
+export interface ConnectedSite {
+  origin: string
+  icon: string
+  name: string
+  approvedAt: number
 }
 
 export interface WalletNetwork {
