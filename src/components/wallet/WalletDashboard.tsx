@@ -6,6 +6,7 @@ import {
   LayoutDashboard,
   Wallet
 } from "lucide-react"
+import { useState } from "react"
 
 import { Tabs, TabsList, TabsTrigger } from "~components/ui/tabs"
 
@@ -16,13 +17,23 @@ import { WalletToken } from "./WalletToken"
 import { WalletTransfer } from "./WalletTransfer"
 
 export const WalletDashboard = () => {
+  const [activeTab, setActiveTab] = useState("all")
+
+  const handleTabChange = (value: string) => {
+    setActiveTab(value)
+  }
+
   return (
     <div className="p-4 min-h-screen">
       {/* header */}
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold">钱包管理</h1>
       </div>
-      <Tabs defaultValue="all" className="w-full mt-4">
+      <Tabs
+        defaultValue="all"
+        value={activeTab}
+        className="w-full mt-4"
+        onValueChange={handleTabChange}>
         <TabsList>
           <TabsTrigger value="all" className="gap-2">
             <LayoutDashboard className="h-4 w-4" />
@@ -46,7 +57,7 @@ export const WalletDashboard = () => {
           </TabsTrigger>
         </TabsList>
         <TabsContent value="all">
-          <WalletOverview />
+          <WalletOverview onTabChange={handleTabChange} />
         </TabsContent>
         <TabsContent value="token">
           <WalletToken />

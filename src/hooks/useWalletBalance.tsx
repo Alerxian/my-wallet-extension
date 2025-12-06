@@ -21,7 +21,7 @@ export const useWalletBalance = () => {
 
       const balance = await provider.getBalance(currentAccount.address)
       console.log("balance", balance)
-      setEthBalance(formatEther(balance))
+      setEthBalance(formatEthBalance(balance))
     } catch (error) {
       console.error("Failed to fetch ETH balance:", error)
     } finally {
@@ -44,4 +44,16 @@ export const useWalletBalance = () => {
     isLoading,
     refreshBalances
   }
+}
+
+function formatEthBalance(balance: bigint, decimalPlaces = 4) {
+  // 1. 转为 ETH 单位的字符串（18 位小数）
+  const ethStr = formatEther(balance)
+  // 2. 固定小数位数 + 去除末尾的零 + 去除小数点后全零的情况
+  let formatted = Number(ethStr)
+    .toFixed(decimalPlaces)
+    .replace(/\.?0*$/, "")
+  // 3. 处理整数情况（如 1 → 1，而非 1.0000）
+  if (formatted === "") formatted = "0"
+  return formatted
 }

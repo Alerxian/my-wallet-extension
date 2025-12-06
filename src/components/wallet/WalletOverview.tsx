@@ -1,4 +1,5 @@
 import copyToClipboard from "copy-to-clipboard"
+import { formatEther } from "ethers"
 import { CopyIcon, RefreshCcw } from "lucide-react"
 
 import { Button } from "~components/ui/button"
@@ -8,7 +9,11 @@ import { useWalletBalance } from "~hooks/useWalletBalance"
 import { truncateAddress } from "~lib/utils"
 import { useWalletStore } from "~stores/walletStore"
 
-export function WalletOverview() {
+export function WalletOverview({
+  onTabChange
+}: {
+  onTabChange: (value: string) => void
+}) {
   const currentNetwork = useWalletStore((s) => s.currentNetwork)
   const currentAccount = useWalletStore((s) => s.currentAccount)
   const { ethBalance, refreshBalances, isLoading } = useWalletBalance()
@@ -59,8 +64,22 @@ export function WalletOverview() {
         </CardContent>
       </Card>
       <div className="flex items-center gap-2 mt-4 w-full">
-        <Button size="lg">转账</Button>
-        <Button size="lg">添加代币</Button>
+        <Button
+          size="lg"
+          className="flex-1 min-w-0"
+          onClick={() => {
+            onTabChange("transfer")
+          }}>
+          转账
+        </Button>
+        <Button
+          size="lg"
+          className="flex-1 min-w-0"
+          onClick={() => {
+            onTabChange("token")
+          }}>
+          添加代币
+        </Button>
       </div>
     </div>
   )

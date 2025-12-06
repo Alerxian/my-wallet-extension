@@ -42,7 +42,11 @@ interface WalletStore extends WalletState {
 
   // token manage
   addToken: (token: WalletToken) => void
-  updateTokenBalance: (address: string, balance: string) => void
+  updateTokenBalance: (
+    address: string,
+    balance: string,
+    tokenId?: string
+  ) => void
   removeToken: (address: string) => void
   addConnectedSite: (site: ConnectedSite) => void
   removeConnectedSite: (origin: string) => void
@@ -202,9 +206,6 @@ export const useWalletStore = create<WalletStore>()(
       },
       createAccount: async (password, name) => {
         const state = get()
-        if (!state.mnemonic) {
-          throw new Error("Wallet not initialized")
-        }
         if (!state.isValidPassword(password)) {
           throw new Error("密码错误")
         }
@@ -303,13 +304,13 @@ export const useWalletStore = create<WalletStore>()(
           set({ token: [...tokens, token] })
         }
       },
-      updateTokenBalance: (address, balance) => {
+      updateTokenBalance: (address, balance, tokenId) => {
         const tokens = get().token
-        const next = tokens.map((t) =>
-          t.address.toLowerCase() === address.toLowerCase()
-            ? { ...t, balance }
-            : t
-        )
+        const next = tokens.map((t) => {
+          const matchAddress = t.address.toLowerCase() === address.toLowerCase()
+          const matchId = tokenId ? t.tokenId === tokenId : true
+          return matchAddress && matchId ? { ...t, balance } : t
+        })
         set({ token: next })
       },
       removeToken: (address) => {
