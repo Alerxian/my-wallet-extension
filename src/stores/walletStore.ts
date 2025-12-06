@@ -1,5 +1,5 @@
 import { AES, enc, SHA256 } from "crypto-js"
-import { ethers, JsonRpcProvider, Wallet } from "ethers"
+import { ethers, HDNodeWallet, JsonRpcProvider, Mnemonic, Wallet } from "ethers"
 import { create } from "zustand"
 import { persist } from "zustand/middleware"
 
@@ -19,7 +19,7 @@ interface WalletStore extends WalletState {
     password: string
   ) => Promise<{ mnemonic: string; account: WalletAccount }>
   /** 导入钱包 */
-  // importWallet: (mnemonic: string, password: string) => Promise<WalletAccount>
+  importWallet: (mnemonic: string, password: string) => Promise<WalletAccount>
   /** 导入私钥 */
   importPrivateKey: (
     privateKey: string,
@@ -58,7 +58,7 @@ interface WalletStore extends WalletState {
 }
 
 const initialState: WalletState = {
-  isLocked: true,
+  isLocked: false,
   isConnected: false,
   accounts: [],
   currentAccount: null,
@@ -76,9 +76,10 @@ export const useWalletStore = create<WalletStore>()(
       ...initialState,
       createWallet: async (password) => {
         // 生成助记词 默认12词助记词
-        const mnemonic = Wallet.createRandom().mnemonic.phrase
+        const mnemonic = HDNodeWallet.createRandom().mnemonic.phrase
+        // console.log(password, mnemonic)
         // 从助记词生成钱包
-        const wallet = Wallet.fromPhrase(mnemonic)
+        const wallet = HDNodeWallet.fromPhrase(mnemonic)
 
         const account: WalletAccount = {
           address: wallet.address,
@@ -104,47 +105,84 @@ export const useWalletStore = create<WalletStore>()(
           mnemonic: encryptedMnemonic,
           password: encryptedPassword,
           accounts: [{ ...account, privateKey: encryptedPrivateKey }],
-          currentAccount: account
+          currentAccount: { ...account, privateKey: encryptedPrivateKey }
         })
-
+        console.log(mnemonic, account, "account")
         return {
           mnemonic,
           account
         }
+      },
+      // 使用现有助记词导入钱包
+      importWallet: async (mnemonic, password) => {
+        // 检查助记词是否有效
+        let mnemonicInstance: HDNodeWallet
+        try {
+          mnemonicInstance = HDNodeWallet.fromPhrase(mnemonic)
+        } catch {
+          throw new Error("Invalid mnemonic")
+        }
+
+        // 从助记词派生新账户
+        // path: m/44'/60'/0'/0/index
+        const wallet = mnemonicInstance.deriveChild(0)
+        const account: WalletAccount = {
+          address: wallet.address,
+          privateKey: wallet.privateKey,
+          name: "Account 1",
+          index: 0
+        }
+
+        const encryptedPassword = SHA256(password).toString()
+        // 加密助记词
+        const encryptedMnemonic = AES.encrypt(
+          mnemonic,
+          encryptedPassword
+        ).toString()
+        // 加密privateKey
+        const encryptedPrivateKey = AES.encrypt(
+          wallet.privateKey,
+          encryptedPassword
+        ).toString()
+
+        set({
+          isLocked: false,
+          mnemonic: encryptedMnemonic,
+          password: encryptedPassword,
+          accounts: [{ ...account, privateKey: encryptedPrivateKey }],
+          currentAccount: { ...account, privateKey: encryptedPrivateKey }
+        })
+        console.log(mnemonic, account, "account")
+        return account
       },
       importPrivateKey: async (privateKey, password, name) => {
         try {
           const wallet = new Wallet(privateKey)
           const accounts = get().accounts
 
-          // 检查是否已存在
-          const existAccount = accounts.find(
-            (a) => a.address === wallet.address
-          )
-          if (existAccount) {
-            throw new Error("Account already exists")
-          }
-
-          const state = get()
-          if (!state.isValidPassword(password)) {
-            throw new Error("密码错误")
-          }
-          const encryptedPrivateKey = AES.encrypt(
-            wallet.privateKey,
-            state.password
-          ).toString()
-
           const newAccount: WalletAccount = {
             address: wallet.address,
-            privateKey: encryptedPrivateKey,
+            privateKey: wallet.privateKey,
             name: name || `Account ${accounts.length + 1}`,
-            index: -1 // -1 表示导入的账户，非 HD 派生
+            index: accounts.length
           }
 
-          const newAccounts = [...accounts, newAccount]
+          const encryptedPassword = SHA256(password).toString()
+          const encryptedPrivateKey = AES.encrypt(
+            wallet.privateKey,
+            encryptedPassword
+          ).toString()
+
+          const newAccounts = [
+            ...accounts,
+            { ...newAccount, privateKey: encryptedPrivateKey }
+          ]
+          console.log(newAccount)
           set({
             accounts: newAccounts,
-            currentAccount: newAccount
+            currentAccount: { ...newAccount, privateKey: encryptedPrivateKey },
+            isLocked: false,
+            password: encryptedPassword
           })
           return newAccount
         } catch (error) {
@@ -167,11 +205,11 @@ export const useWalletStore = create<WalletStore>()(
         if (!state.mnemonic) {
           throw new Error("Wallet not initialized")
         }
+        if (!state.isValidPassword(password)) {
+          throw new Error("密码错误")
+        }
 
         try {
-          if (!state.isValidPassword(password)) {
-            throw new Error("密码错误")
-          }
           const mnemonicBytes = AES.decrypt(state.mnemonic, state.password)
           const mnemonic = mnemonicBytes.toString(enc.Utf8)
 

@@ -12,6 +12,8 @@ import { Tabs, TabsList, TabsTrigger } from "~components/ui/tabs"
 import { WalletAccount } from "./WalletAccount"
 import { WalletNetwork } from "./WalletNetwork"
 import { WalletOverview } from "./WalletOverview"
+import { WalletToken } from "./WalletToken"
+import { WalletTransfer } from "./WalletTransfer"
 
 export const WalletDashboard = () => {
   return (
@@ -45,6 +47,12 @@ export const WalletDashboard = () => {
         </TabsList>
         <TabsContent value="all">
           <WalletOverview />
+        </TabsContent>
+        <TabsContent value="token">
+          <WalletToken />
+        </TabsContent>
+        <TabsContent value="transfer">
+          <WalletTransfer />
         </TabsContent>
         <TabsContent value="account">
           <WalletAccount />

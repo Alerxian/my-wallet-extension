@@ -10,7 +10,11 @@ export const Index = () => {
   }
 
   if (isLocked) {
-    return <div>请先解锁钱包</div>
+    return (
+      <div className="text-center text-2xl font-bold text-red-500 w-[400px] min-h-screen">
+        请先解锁钱包
+      </div>
+    )
   }
   return <WalletDashboard />
 }

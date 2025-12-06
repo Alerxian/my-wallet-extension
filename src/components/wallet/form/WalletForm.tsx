@@ -14,6 +14,7 @@ import {
 import { Input } from "~components/ui/input"
 import { LoadingButton } from "~components/ui/loading-button"
 import { PasswordInput } from "~components/ui/password-input"
+import { Textarea } from "~components/ui/textarea"
 import { useWalletStore } from "~stores/walletStore"
 
 const createWalletFormSchema = z
@@ -93,13 +94,184 @@ export const CreateWalletForm = () => {
             )}
           />
         </FieldGroup>
-        <Field orientation="horizontal">
+        <Field>
           <LoadingButton
             type="submit"
             className="w-full"
             form="createWalletForm"
             loading={loading}>
             创建钱包
+          </LoadingButton>
+        </Field>
+      </FieldSet>
+    </form>
+  )
+}
+
+const importWalletFormSchema = z.object({
+  mnemonic: z.string().min(12, "助记词至少12个单词"),
+  password: z.string().min(8, "密码至少8位")
+})
+export const ImportMnemonicForm = () => {
+  const importWallet = useWalletStore((s) => s.importWallet)
+  const form = useForm({
+    resolver: zodResolver(importWalletFormSchema),
+    defaultValues: {
+      mnemonic: "",
+      password: ""
+    }
+  })
+  const [loading, setLoading] = useState(false)
+
+  const onSubmit = async (data: z.infer<typeof importWalletFormSchema>) => {
+    const { mnemonic, password } = data
+    try {
+      setLoading(true)
+      await importWallet(mnemonic, password)
+      toast.success("钱包导入成功")
+    } catch (error) {
+      console.error(error)
+      toast.error("钱包导入失败")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <form id="importWalletForm" onSubmit={form.handleSubmit(onSubmit)}>
+      <FieldSet>
+        <FieldGroup>
+          <Controller
+            name="mnemonic"
+            control={form.control}
+            render={({ field, fieldState }) => (
+              <Field data-invalid={fieldState.invalid}>
+                <FieldLabel htmlFor="mnemonic">助记词</FieldLabel>
+                <Textarea
+                  {...field}
+                  id="mnemonic"
+                  rows={4}
+                  aria-invalid={fieldState.invalid}
+                  placeholder="输入助记词，至少12个单词, 用空格分隔"
+                />
+                {fieldState.invalid && (
+                  <FieldError errors={[fieldState.error]} />
+                )}
+              </Field>
+            )}
+          />
+          <Controller
+            name="password"
+            control={form.control}
+            render={({ field, fieldState }) => (
+              <Field data-invalid={fieldState.invalid}>
+                <FieldLabel htmlFor="password">密码</FieldLabel>
+                <PasswordInput
+                  {...field}
+                  id="password"
+                  aria-invalid={fieldState.invalid}
+                  placeholder="输入密码，至少8位"
+                />
+                {fieldState.invalid && (
+                  <FieldError errors={[fieldState.error]} />
+                )}
+              </Field>
+            )}
+          />
+        </FieldGroup>
+        <Field orientation="horizontal">
+          <LoadingButton
+            type="submit"
+            className="w-full"
+            form="importWalletForm"
+            loading={loading}>
+            导入钱包
+          </LoadingButton>
+        </Field>
+      </FieldSet>
+    </form>
+  )
+}
+
+const importPrivateKeyFormSchema = z.object({
+  privateKey: z.string().min(1, "私钥不能为空"),
+  password: z.string().min(8, "密码至少8位")
+})
+
+export const ImportPrivateKeyForm = () => {
+  const importPrivateKey = useWalletStore((s) => s.importPrivateKey)
+  const form = useForm({
+    resolver: zodResolver(importPrivateKeyFormSchema),
+    defaultValues: {
+      privateKey: "",
+      password: ""
+    }
+  })
+  const [loading, setLoading] = useState(false)
+
+  const onSubmit = async (data: z.infer<typeof importPrivateKeyFormSchema>) => {
+    const { privateKey, password } = data
+    try {
+      setLoading(true)
+      await importPrivateKey(privateKey, password)
+      toast.success("钱包导入成功")
+    } catch (error) {
+      console.error(error)
+      toast.error("钱包导入失败")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <form id="importPrivateKeyForm" onSubmit={form.handleSubmit(onSubmit)}>
+      <FieldSet>
+        <FieldGroup>
+          <Controller
+            name="privateKey"
+            control={form.control}
+            render={({ field, fieldState }) => (
+              <Field data-invalid={fieldState.invalid}>
+                <FieldLabel htmlFor="privateKey">私钥</FieldLabel>
+                <Input
+                  {...field}
+                  id="privateKey"
+                  type="text"
+                  aria-invalid={fieldState.invalid}
+                  placeholder="输入私钥，以0x开头的64位十六进制字符串"
+                />
+                {fieldState.invalid && (
+                  <FieldError errors={[fieldState.error]} />
+                )}
+              </Field>
+            )}
+          />
+          <Controller
+            name="password"
+            control={form.control}
+            render={({ field, fieldState }) => (
+              <Field data-invalid={fieldState.invalid}>
+                <FieldLabel htmlFor="password">密码</FieldLabel>
+                <PasswordInput
+                  {...field}
+                  id="password"
+                  aria-invalid={fieldState.invalid}
+                  placeholder="输入密码，至少8位"
+                />
+                {fieldState.invalid && (
+                  <FieldError errors={[fieldState.error]} />
+                )}
+              </Field>
+            )}
+          />
+        </FieldGroup>
+        <Field orientation="horizontal">
+          <LoadingButton
+            type="submit"
+            className="w-full"
+            form="importPrivateKeyForm"
+            loading={loading}>
+            导入钱包
           </LoadingButton>
         </Field>
       </FieldSet>

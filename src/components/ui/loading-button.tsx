@@ -1,4 +1,5 @@
 // components/ui/loading-button.tsx
+import clsx from "clsx"
 import { Loader2 } from "lucide-react"
 
 import { Button } from "~/components/ui/button"
@@ -20,7 +21,11 @@ export function LoadingButton({
     <Button
       {...props}
       disabled={loading || disabled} // 合并原有 disabled 状态
-      className="relative">
+      className={clsx(
+        props.className,
+        "flex items-center justify-center",
+        loading && "opacity-50 cursor-not-allowed"
+      )}>
       {/* 加载状态 */}
       {loading && (
         <>
