@@ -1,14 +1,12 @@
-window.addEventListener("message", (event) => {
-  console.log("收到来自injected-helper的消息:", event.data)
+﻿window.addEventListener("message", (event) => {
   if (
     event.source !== window ||
     !event.data ||
     !event.data.type ||
     event.data.from !== "injected-helper"
-  )
+  ) {
     return
-
-  console.log("event.data:发送到background:", event.data)
+  }
 
   chrome.runtime.sendMessage(
     {
@@ -17,9 +15,7 @@ window.addEventListener("message", (event) => {
       data: event.data.data
     },
     (response) => {
-      console.log("收到来自 background 的响应：", response)
       if (chrome.runtime.lastError) {
-        console.error("转发消息到background失败：", chrome.runtime.lastError)
         window.postMessage(
           {
             from: "message-bridge",
@@ -27,18 +23,18 @@ window.addEventListener("message", (event) => {
             success: false,
             error: chrome.runtime.lastError.message
           },
-          window.location.origin
+          "*"
         )
         return
       }
 
-      if (!response.success || response.error || !response.data) {
+      if (!response?.success) {
         window.postMessage(
           {
             from: "message-bridge",
             requestId: event.data.requestId,
             success: false,
-            error: response.error || "未知错误"
+            error: response?.error || "Unknown error"
           },
           "*"
         )
@@ -50,7 +46,7 @@ window.addEventListener("message", (event) => {
           from: "message-bridge",
           requestId: event.data.requestId,
           success: true,
-          data: response.data
+          data: response.data ?? {}
         },
         "*"
       )

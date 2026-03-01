@@ -1,4 +1,4 @@
-import {
+﻿import {
   Field,
   FieldContent,
   FieldDescription,
@@ -7,38 +7,34 @@ import {
 } from "~components/ui/field"
 import { RadioGroup, RadioGroupItem } from "~components/ui/radio-group"
 import { useWalletStore } from "~stores/walletStore"
-import { DEFAULT_NETWORK } from "~types/wallet"
 
 export const WalletNetwork = () => {
-  const currentNetwork = useWalletStore((state) => state.currentNetwork)
+  const currentChain = useWalletStore((state) => state.currentChain)
+  const networks = useWalletStore((state) => state.networksByChain[state.currentChain])
+  const currentNetwork = useWalletStore(
+    (state) => state.currentNetworkByChain[state.currentChain]
+  )
   const switchNetwork = useWalletStore((state) => state.switchNetwork)
 
   return (
     <div className="w-full mt-4">
+      <div className="text-sm text-muted-foreground mb-3">Chain: {currentChain}</div>
       <RadioGroup
-        defaultValue={String(currentNetwork?.id || 0)}
-        onValueChange={(value) => {
-          switchNetwork(value)
-        }}>
-        {DEFAULT_NETWORK.map((network) => (
-          <FieldLabel key={network.id} htmlFor={`${network.id}-r2h`}>
-            <Field
-              orientation="horizontal"
-              className="flex items-center gap-2 px-6">
+        value={String(currentNetwork?.id || "")}
+        onValueChange={(value) => switchNetwork(value, currentChain)}>
+        {networks.map((network) => (
+          <FieldLabel key={network.id} htmlFor={`${network.id}-network`}>
+            <Field orientation="horizontal" className="flex items-center gap-2 px-4 py-2">
               <FieldContent>
                 <FieldTitle>{network.name}</FieldTitle>
-                <FieldDescription>{network.chainId}</FieldDescription>
+                <FieldDescription>{String(network.chainId || "-")}</FieldDescription>
                 <div
-                  className="text-sm text-muted-foreground break-all w-[80%]"
-                  style={{
-                    wordBreak: "break-all",
-                    whiteSpace: "normal",
-                    overflowWrap: "anywhere"
-                  }}>
+                  className="text-sm text-muted-foreground break-all w-[85%]"
+                  style={{ wordBreak: "break-all", whiteSpace: "normal", overflowWrap: "anywhere" }}>
                   {network.rpcUrl}
                 </div>
               </FieldContent>
-              <RadioGroupItem value={network.id} id={`${network.id}-r2h`} />
+              <RadioGroupItem value={network.id} id={`${network.id}-network`} />
             </Field>
           </FieldLabel>
         ))}

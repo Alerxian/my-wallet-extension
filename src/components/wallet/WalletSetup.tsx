@@ -1,4 +1,4 @@
-import { Wallet } from "lucide-react"
+﻿import { Wallet } from "lucide-react"
 
 import {
   Card,
@@ -8,6 +8,9 @@ import {
   CardTitle
 } from "~components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "~components/ui/tabs"
+import { useWalletStore } from "~stores/walletStore"
+import { CHAIN_TYPES } from "~types/wallet"
+import { Button } from "~components/ui/button"
 
 import {
   CreateWalletForm,
@@ -16,6 +19,9 @@ import {
 } from "./form/WalletForm"
 
 export const WalletSetup = () => {
+  const currentChain = useWalletStore((state) => state.currentChain)
+  const setCurrentChain = useWalletStore((state) => state.setCurrentChain)
+
   return (
     <div className="w-[400px] p-4 min-h-screen">
       <div className="text-center space-y-4">
@@ -23,21 +29,36 @@ export const WalletSetup = () => {
           <Wallet className="w-8 h-8 text-blue-500" />
           <h1 className="text-3xl font-bold">My Wallet</h1>
         </div>
-        <p className="text-gray-500 text-sm">安全、简单的加密货币钱包</p>
+        <p className="text-gray-500 text-sm">
+          Simple multi-chain wallet for EVM, Solana and Sui
+        </p>
+      </div>
+
+      <div className="flex gap-2 mt-4">
+        {CHAIN_TYPES.map((chain) => (
+          <Button
+            key={chain}
+            variant={currentChain === chain ? "default" : "outline"}
+            className="flex-1"
+            onClick={() => setCurrentChain(chain)}>
+            {chain}
+          </Button>
+        ))}
       </div>
 
       <Tabs defaultValue="wallet" className="w-full mt-4">
         <TabsList className="w-full">
-          <TabsTrigger value="wallet">创建钱包</TabsTrigger>
-          <TabsTrigger value="import">导入助记词</TabsTrigger>
-          <TabsTrigger value="privateKey">导入私钥</TabsTrigger>
+          <TabsTrigger value="wallet">Create Wallet</TabsTrigger>
+          <TabsTrigger value="import">Import Mnemonic</TabsTrigger>
+          <TabsTrigger value="privateKey">Import Private Key</TabsTrigger>
         </TabsList>
+
         <TabsContent value="wallet">
           <Card className="w-full">
             <CardHeader>
-              <CardTitle className="text-2xl font-bold">创建新钱包</CardTitle>
+              <CardTitle className="text-xl font-bold">Create Wallet</CardTitle>
               <CardDescription>
-                <p className="text-base">创建新钱包并生成助记词</p>
+                Create wallet and first {currentChain} account.
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -45,12 +66,13 @@ export const WalletSetup = () => {
             </CardContent>
           </Card>
         </TabsContent>
+
         <TabsContent value="import">
           <Card className="w-full">
             <CardHeader>
-              <CardTitle className="text-2xl font-bold">导入助记词</CardTitle>
+              <CardTitle className="text-xl font-bold">Import Mnemonic</CardTitle>
               <CardDescription>
-                <p className="text-base">导入已有的助记词钱包</p>
+                Import mnemonic and derive first {currentChain} account.
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -58,12 +80,13 @@ export const WalletSetup = () => {
             </CardContent>
           </Card>
         </TabsContent>
+
         <TabsContent value="privateKey">
           <Card className="w-full">
             <CardHeader>
-              <CardTitle className="text-2xl font-bold">导入私钥</CardTitle>
+              <CardTitle className="text-xl font-bold">Import Private Key</CardTitle>
               <CardDescription>
-                <p className="text-base">使用私钥导入账户</p>
+                Import private key as a {currentChain} account.
               </CardDescription>
             </CardHeader>
             <CardContent>

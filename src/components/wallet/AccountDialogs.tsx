@@ -1,4 +1,4 @@
-import { SHA256 } from "crypto-js"
+﻿import { SHA256 } from "crypto-js"
 import { Loader2, Plus } from "lucide-react"
 import { useState } from "react"
 import { toast } from "sonner"
@@ -23,31 +23,30 @@ export const CreateAccountDialog = () => {
   const [password, setPassword] = useState("")
   const [isLoading, setIsLoading] = useState(false)
 
+  const currentChain = useWalletStore((state) => state.currentChain)
   const createAccount = useWalletStore((state) => state.createAccount)
   const storedPassword = useWalletStore((state) => state.password)
 
   const handleCreate = async () => {
     if (!password) {
-      toast.error("请输入钱包密码")
+      toast.error("Please input wallet password")
       return
     }
 
     setIsLoading(true)
     try {
-      // 验证密码
-
       const inputHash = SHA256(password).toString()
       if (inputHash !== storedPassword) {
-        throw new Error("密码错误")
+        throw new Error("Invalid password")
       }
 
-      await createAccount(password, name || undefined)
-      toast.success("账户创建成功")
+      await createAccount(password, name || undefined, currentChain)
+      toast.success(`Account created on ${currentChain}`)
       setOpen(false)
       setName("")
       setPassword("")
     } catch (error) {
-      toast.error("账户创建失败: " + (error as Error).message)
+      toast.error(`Create account failed: ${(error as Error).message}`)
     } finally {
       setIsLoading(false)
     }
@@ -58,32 +57,32 @@ export const CreateAccountDialog = () => {
       <DialogTrigger asChild>
         <Button size="sm" variant="outline" className="h-8 gap-1">
           <Plus className="h-3.5 w-3.5" />
-          <span className="text-xs">创建</span>
+          <span className="text-xs">Create</span>
         </Button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>创建新账户</DialogTitle>
+          <DialogTitle>Create Account</DialogTitle>
           <DialogDescription>
-            这将从您的助记词派生一个新的账户地址。需要验证密码。
+            Create a new {currentChain} account from wallet mnemonic.
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
           <div className="grid gap-2">
-            <Label htmlFor="name">账户名称 (可选)</Label>
+            <Label htmlFor="name">Account Name (optional)</Label>
             <Input
               id="name"
-              placeholder="例如: Account 2"
+              placeholder="Account 2"
               value={name}
               onChange={(e) => setName(e.target.value)}
             />
           </div>
           <div className="grid gap-2">
-            <Label htmlFor="create-password">钱包密码</Label>
+            <Label htmlFor="create-password">Wallet Password</Label>
             <Input
               id="create-password"
               type="password"
-              placeholder="请输入当前钱包密码"
+              placeholder="Input current wallet password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
             />
@@ -91,11 +90,11 @@ export const CreateAccountDialog = () => {
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => setOpen(false)}>
-            取消
+            Cancel
           </Button>
           <Button onClick={handleCreate} disabled={isLoading}>
             {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            创建
+            Create
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -110,34 +109,35 @@ export const ImportPrivateKeyDialog = () => {
   const [password, setPassword] = useState("")
   const [isLoading, setIsLoading] = useState(false)
 
+  const currentChain = useWalletStore((state) => state.currentChain)
   const importPrivateKey = useWalletStore((state) => state.importPrivateKey)
   const storedPassword = useWalletStore((state) => state.password)
 
   const handleImport = async () => {
     if (!privateKey) {
-      toast.error("请输入私钥")
+      toast.error("Please input private key")
       return
     }
     if (!password) {
-      toast.error("请输入钱包密码以加密存储私钥")
+      toast.error("Please input wallet password")
       return
     }
 
     setIsLoading(true)
     try {
       const inputHash = SHA256(password).toString()
-      if (inputHash !== storedPassword) {
-        throw new Error("密码错误")
+      if (storedPassword && inputHash !== storedPassword) {
+        throw new Error("Invalid password")
       }
 
-      await importPrivateKey(privateKey, password, name || undefined)
-      toast.success("私钥导入成功")
+      await importPrivateKey(privateKey, password, name || undefined, currentChain)
+      toast.success(`Private key imported on ${currentChain}`)
       setOpen(false)
       setPrivateKey("")
       setName("")
       setPassword("")
     } catch (error) {
-      toast.error("导入失败: " + (error as Error).message)
+      toast.error(`Import failed: ${(error as Error).message}`)
     } finally {
       setIsLoading(false)
     }
@@ -148,42 +148,42 @@ export const ImportPrivateKeyDialog = () => {
       <DialogTrigger asChild>
         <Button size="sm" variant="outline" className="h-8 gap-1">
           <Plus className="h-3.5 w-3.5" />
-          <span className="text-xs">导入</span>
+          <span className="text-xs">Import</span>
         </Button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>导入私钥</DialogTitle>
+          <DialogTitle>Import Private Key</DialogTitle>
           <DialogDescription>
-            导入外部私钥作为新账户。请确保您的私钥安全。
+            Import a {currentChain} private key as a new account.
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
           <div className="grid gap-2">
-            <Label htmlFor="pk-name">账户名称 (可选)</Label>
+            <Label htmlFor="pk-name">Account Name (optional)</Label>
             <Input
               id="pk-name"
-              placeholder="例如: Imported Account 1"
+              placeholder="Imported Account"
               value={name}
               onChange={(e) => setName(e.target.value)}
             />
           </div>
           <div className="grid gap-2">
-            <Label htmlFor="private-key">私钥</Label>
+            <Label htmlFor="private-key">Private Key</Label>
             <Input
               id="private-key"
               type="password"
-              placeholder="0x..."
+              placeholder="Paste private key"
               value={privateKey}
               onChange={(e) => setPrivateKey(e.target.value)}
             />
           </div>
           <div className="grid gap-2">
-            <Label htmlFor="password">钱包密码</Label>
+            <Label htmlFor="password">Wallet Password</Label>
             <Input
               id="password"
               type="password"
-              placeholder="请输入当前钱包密码"
+              placeholder="Input wallet password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
             />
@@ -191,11 +191,11 @@ export const ImportPrivateKeyDialog = () => {
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => setOpen(false)}>
-            取消
+            Cancel
           </Button>
           <Button onClick={handleImport} disabled={isLoading}>
             {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            导入
+            Import
           </Button>
         </DialogFooter>
       </DialogContent>

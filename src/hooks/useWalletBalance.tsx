@@ -1,59 +1,50 @@
-import { formatEther } from "ethers"
-import { useCallback, useEffect, useState } from "react"
+﻿import { useCallback, useEffect, useState } from "react"
 
 import { useWalletStore } from "~stores/walletStore"
 
 export const useWalletBalance = () => {
-  const getProvider = useWalletStore((s) => s.getProvider)
-  const currentAccount = useWalletStore((s) => s.currentAccount)
-  const currentNetwork = useWalletStore((s) => s.currentNetwork)
+  const currentChain = useWalletStore((state) => state.currentChain)
+  const currentAccount = useWalletStore(
+    (state) => state.currentAccountByChain[state.currentChain]
+  )
+  const currentNetwork = useWalletStore(
+    (state) => state.currentNetworkByChain[state.currentChain]
+  )
+  const getNativeBalance = useWalletStore((state) => state.getNativeBalance)
 
-  const [ethBalance, setEthBalance] = useState("0")
+  const [balance, setBalance] = useState("0")
+  const [symbol, setSymbol] = useState("-")
   const [isLoading, setIsLoading] = useState(false)
 
-  const fetchEthBalance = useCallback(async () => {
-    if (!currentAccount || !currentNetwork || !getProvider) return
+  const refreshBalances = useCallback(async () => {
+    if (!currentAccount || !currentNetwork) {
+      setBalance("0")
+      setSymbol(currentNetwork?.symbol || "-")
+      return
+    }
 
     setIsLoading(true)
     try {
-      const provider = getProvider()
-      if (!provider) return
-
-      const balance = await provider.getBalance(currentAccount.address)
-      console.log("balance", balance)
-      setEthBalance(formatEthBalance(balance))
+      const result = await getNativeBalance(currentChain)
+      setBalance(result.balance)
+      setSymbol(result.symbol)
     } catch (error) {
-      console.error("Failed to fetch ETH balance:", error)
+      console.error("Failed to fetch native balance", error)
+      setBalance("0")
+      setSymbol(currentNetwork.symbol)
     } finally {
       setIsLoading(false)
     }
-  }, [currentAccount, currentNetwork, getProvider])
-
-  const fetchAllTokenBalances = useCallback(async () => {}, [])
-
-  const refreshBalances = useCallback(async () => {
-    await Promise.all([fetchEthBalance(), fetchAllTokenBalances()])
-  }, [fetchEthBalance, fetchAllTokenBalances])
+  }, [currentAccount, currentNetwork, getNativeBalance, currentChain])
 
   useEffect(() => {
-    refreshBalances()
+    void refreshBalances()
   }, [refreshBalances])
 
   return {
-    ethBalance,
+    balance,
+    symbol,
     isLoading,
     refreshBalances
   }
-}
-
-function formatEthBalance(balance: bigint, decimalPlaces = 4) {
-  // 1. 转为 ETH 单位的字符串（18 位小数）
-  const ethStr = formatEther(balance)
-  // 2. 固定小数位数 + 去除末尾的零 + 去除小数点后全零的情况
-  let formatted = Number(ethStr)
-    .toFixed(decimalPlaces)
-    .replace(/\.?0*$/, "")
-  // 3. 处理整数情况（如 1 → 1，而非 1.0000）
-  if (formatted === "") formatted = "0"
-  return formatted
 }

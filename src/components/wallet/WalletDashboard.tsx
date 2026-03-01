@@ -1,4 +1,4 @@
-import { TabsContent } from "@radix-ui/react-tabs"
+﻿import { TabsContent } from "@radix-ui/react-tabs"
 import {
   ArrowRightLeft,
   Coins,
@@ -8,7 +8,10 @@ import {
 } from "lucide-react"
 import { useState } from "react"
 
+import { Button } from "~components/ui/button"
 import { Tabs, TabsList, TabsTrigger } from "~components/ui/tabs"
+import { CHAIN_TYPES } from "~types/wallet"
+import { useWalletStore } from "~stores/walletStore"
 
 import { WalletAccount } from "./WalletAccount"
 import { WalletNetwork } from "./WalletNetwork"
@@ -16,48 +19,64 @@ import { WalletOverview } from "./WalletOverview"
 import { WalletToken } from "./WalletToken"
 import { WalletTransfer } from "./WalletTransfer"
 
-export const WalletDashboard = () => {
-  const [activeTab, setActiveTab] = useState("all")
+const chainLabelMap = {
+  EVM: "EVM",
+  SOLANA: "SOL",
+  SUI: "SUI"
+}
 
-  const handleTabChange = (value: string) => {
-    setActiveTab(value)
-  }
+export const WalletDashboard = () => {
+  const [activeTab, setActiveTab] = useState("overview")
+  const currentChain = useWalletStore((state) => state.currentChain)
+  const setCurrentChain = useWalletStore((state) => state.setCurrentChain)
 
   return (
-    <div className="p-4 min-h-screen">
-      {/* header */}
-      <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold">钱包管理</h1>
+    <div className="p-4 min-h-screen w-[400px]">
+      <div className="flex items-center justify-between gap-2">
+        <h1 className="text-xl font-bold">My Wallet</h1>
+        <div className="flex items-center gap-1">
+          {CHAIN_TYPES.map((chain) => (
+            <Button
+              key={chain}
+              size="sm"
+              variant={currentChain === chain ? "default" : "outline"}
+              onClick={() => setCurrentChain(chain)}>
+              {chainLabelMap[chain]}
+            </Button>
+          ))}
+        </div>
       </div>
+
       <Tabs
-        defaultValue="all"
+        defaultValue="overview"
         value={activeTab}
         className="w-full mt-4"
-        onValueChange={handleTabChange}>
+        onValueChange={setActiveTab}>
         <TabsList>
-          <TabsTrigger value="all" className="gap-2">
+          <TabsTrigger value="overview" className="gap-2">
             <LayoutDashboard className="h-4 w-4" />
-            总览
+            Overview
           </TabsTrigger>
           <TabsTrigger value="account" className="gap-2">
             <Wallet className="h-4 w-4" />
-            账户
+            Account
           </TabsTrigger>
           <TabsTrigger value="network" className="gap-2">
             <Globe className="h-4 w-4" />
-            网络
+            Network
           </TabsTrigger>
           <TabsTrigger value="token" className="gap-2">
             <Coins className="h-4 w-4" />
-            代币
+            Token
           </TabsTrigger>
           <TabsTrigger value="transfer" className="gap-2">
             <ArrowRightLeft className="h-4 w-4" />
-            转账
+            Transfer
           </TabsTrigger>
         </TabsList>
-        <TabsContent value="all">
-          <WalletOverview onTabChange={handleTabChange} />
+
+        <TabsContent value="overview">
+          <WalletOverview onTabChange={setActiveTab} />
         </TabsContent>
         <TabsContent value="token">
           <WalletToken />

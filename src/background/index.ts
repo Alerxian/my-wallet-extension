@@ -1,91 +1,131 @@
-// 初始化钱包状态
-
-import { useWalletStore } from "~stores/walletStore"
+﻿import { useWalletStore } from "~stores/walletStore"
 
 import {
   WALLET_CONNECT,
   WALLET_DISCONNECT,
   WALLET_GET_ACCOUNT,
-  WALLET_SIGN_MESSAGE
+  WALLET_GET_BALANCE,
+  WALLET_SIGN_MESSAGE,
+  WALLET_SWITCH_CHAIN,
+  WALLET_SWITCH_NETWORK,
+  WALLET_TRANSFER
 } from "./constants"
 import { injectMyWallet } from "./injected-helper"
 
-console.log("Background SW 启动，注册监听") // 同步执行
-// 注册消息监听器
 const setupMessageListener = () => {
-  console.log("监听来自 message-bridge 的消息")
-  chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-    console.log("background 收到消息 cc-wallet:", message, sender)
+  chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+    const state = useWalletStore.getState()
+
+    const reply = (payload: Record<string, unknown>) => {
+      sendResponse({
+        requestId: message.requestId,
+        ...payload
+      })
+    }
+
+    const handleAsync = async (handler: () => Promise<any>) => {
+      try {
+        const data = await handler()
+        reply({ success: true, data })
+      } catch (error: any) {
+        reply({ success: false, error: error?.message || String(error) })
+      }
+    }
+
     if (message.type === WALLET_CONNECT) {
-      const state = useWalletStore.getState()
-      try {
-        state
-          .connect()
-          .then(() => {
-            console.log("连接成功", state.currentAccount)
-            sendResponse({
-              success: true,
-              data: { account: state.currentAccount }
-            })
-          })
-          .catch((error) => {
-            sendResponse({ success: false, error: error.message })
-          })
-      } catch (error) {
-        sendResponse({ success: false, error: error.message })
-      }
-
+      void handleAsync(async () => {
+        const account = await state.connect(message.data?.chain)
+        return { account }
+      })
       return true
     }
 
-    // 获取当前连接的账户
     if (message.type === WALLET_GET_ACCOUNT) {
-      const state = useWalletStore.getState()
-      sendResponse({ success: true, data: { account: state.currentAccount } })
+      void handleAsync(async () => {
+        const account = state.getCurrentAccount(message.data?.chain)
+        return { account }
+      })
       return true
     }
 
-    // 签名消息
     if (message.type === WALLET_SIGN_MESSAGE) {
-      if (!message.data || !message.data.message) {
-        sendResponse({ success: false, error: "消息格式错误" })
-        return true
-      }
-      const state = useWalletStore.getState()
-      try {
-        state
-          .signMessage(message.data.message)
-          .then((signedMessage) => {
-            sendResponse({ success: true, data: { signedMessage } })
-          })
-          .catch((error) => {
-            sendResponse({ success: false, error: error.message })
-          })
-      } catch (error) {
-        sendResponse({ success: false, error: error.message })
-      }
-
+      void handleAsync(async () => {
+        const signature = await state.signMessage(
+          message.data?.message,
+          message.data?.chain
+        )
+        return { signature }
+      })
       return true
     }
 
-    // 断开连接
+    if (message.type === WALLET_GET_BALANCE) {
+      void handleAsync(async () => {
+        const result = await state.getNativeBalance(message.data?.chain)
+        return result
+      })
+      return true
+    }
+
+    if (message.type === WALLET_TRANSFER) {
+      void handleAsync(async () => {
+        const tx = await state.transferNative({
+          to: message.data?.to,
+          amount: message.data?.amount,
+          password: message.data?.password,
+          chain: message.data?.chain,
+          gasLimit: message.data?.gasLimit,
+          gasPriceGwei: message.data?.gasPriceGwei
+        })
+
+        return tx
+      })
+      return true
+    }
+
+    if (message.type === WALLET_SWITCH_CHAIN) {
+      void handleAsync(async () => {
+        if (!message.data?.chain) {
+          throw new Error("chain is required")
+        }
+
+        state.setCurrentChain(message.data.chain)
+        return {
+          chain: message.data.chain,
+          account: state.getCurrentAccount(message.data.chain),
+          network: state.getCurrentNetwork(message.data.chain)
+        }
+      })
+      return true
+    }
+
+    if (message.type === WALLET_SWITCH_NETWORK) {
+      void handleAsync(async () => {
+        state.switchNetwork(message.data?.networkId, message.data?.chain)
+        return {
+          network: state.getCurrentNetwork(message.data?.chain)
+        }
+      })
+      return true
+    }
+
     if (message.type === WALLET_DISCONNECT) {
-      const state = useWalletStore.getState()
       state.disconnect()
-      sendResponse({ success: true })
+      reply({ success: true, data: { disconnected: true } })
       return true
     }
+
+    reply({ success: false, error: "Unsupported message type" })
+    return true
   })
 }
 
-// 注入钱包脚本到页面
 const setupScriptInjection = () => {
-  // console.log("设置脚本注入 setup-----")
-  // 当页面加载完成时注入
+  const shouldInject = (url?: string) =>
+    Boolean(url && !url.startsWith("chrome://") && !url.startsWith("chrome-extension://"))
+
   chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
-    // console.log("tabId:", tabId, "changeInfo:", changeInfo, "tab:", tab)
-    if (changeInfo.status === "complete" && !tab.url?.startsWith("chrome://")) {
-      console.log("页面加载完成，注入钱包脚本")
+    if (changeInfo.status === "complete" && shouldInject(tab.url)) {
       chrome.scripting.executeScript(
         {
           target: { tabId },
@@ -94,37 +134,25 @@ const setupScriptInjection = () => {
         },
         () => {
           if (chrome.runtime.lastError) {
-            console.error(
-              "❌ Background script: 注入失败",
-              chrome.runtime.lastError
-            )
-          } else {
-            console.log("✅ Background script: ccWallet 注入完成")
+            console.error("Failed to inject wallet script", chrome.runtime.lastError)
           }
         }
       )
     }
   })
 
-  // 当标签页激活时也注入（备用机制）
-  chrome.tabs.onActivated.addListener((e) => {
-    chrome.tabs.get(e.tabId, (tab) => {
-      if (tab.url && !tab.url.startsWith("chrome://")) {
-        console.log("🔄 标签页激活，注入 ccWallet:", tab.url)
+  chrome.tabs.onActivated.addListener((activeInfo) => {
+    chrome.tabs.get(activeInfo.tabId, (tab) => {
+      if (shouldInject(tab.url)) {
         chrome.scripting.executeScript(
           {
-            target: { tabId: e.tabId },
+            target: { tabId: activeInfo.tabId },
             world: "MAIN",
             func: injectMyWallet
           },
           () => {
             if (chrome.runtime.lastError) {
-              console.error(
-                "❌ Background script: 注入失败",
-                chrome.runtime.lastError
-              )
-            } else {
-              console.log("✅ Background script: ccWallet 注入完成")
+              console.error("Failed to inject wallet script", chrome.runtime.lastError)
             }
           }
         )
@@ -135,12 +163,3 @@ const setupScriptInjection = () => {
 
 setupMessageListener()
 setupScriptInjection()
-
-// 监听扩展安装事件
-chrome.runtime.onInstalled.addListener((details) => {
-  console.log("🔄 扩展安装事件:", details.reason)
-  if (details.reason === "install") {
-    // 执行安装时的操作
-    console.log("🔄 扩展安装完成")
-  }
-})

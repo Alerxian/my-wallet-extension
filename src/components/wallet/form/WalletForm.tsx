@@ -1,8 +1,8 @@
-import { zodResolver } from "@hookform/resolvers/zod"
+﻿import { zodResolver } from "@hookform/resolvers/zod"
 import { useState } from "react"
 import { Controller, useForm } from "react-hook-form"
 import { toast } from "sonner"
-import z from "zod"
+import { z } from "zod"
 
 import {
   Field,
@@ -19,16 +19,17 @@ import { useWalletStore } from "~stores/walletStore"
 
 const createWalletFormSchema = z
   .object({
-    password: z.string().min(8, "密码至少8位"),
-    confirmPassword: z.string().min(8, "确认密码至少8位")
+    password: z.string().min(8, "Password must be at least 8 chars"),
+    confirmPassword: z.string().min(8, "Confirm password is required")
   })
   .refine((data) => data.password === data.confirmPassword, {
-    message: "两次输入密码不一致",
+    message: "Passwords do not match",
     path: ["confirmPassword"]
   })
 
 export const CreateWalletForm = () => {
-  const createWallet = useWalletStore((s) => s.createWallet)
+  const currentChain = useWalletStore((state) => state.currentChain)
+  const createWallet = useWalletStore((state) => state.createWallet)
   const form = useForm({
     resolver: zodResolver(createWalletFormSchema),
     defaultValues: {
@@ -39,14 +40,13 @@ export const CreateWalletForm = () => {
   const [loading, setLoading] = useState(false)
 
   const onSubmit = async (data: z.infer<typeof createWalletFormSchema>) => {
-    const { password } = data
     try {
       setLoading(true)
-      await createWallet(password)
-      toast.success("钱包创建成功")
+      await createWallet(data.password, currentChain)
+      toast.success(`Wallet created on ${currentChain}`)
     } catch (error) {
       console.error(error)
-      toast.error("钱包创建失败")
+      toast.error(`Wallet creation failed: ${(error as Error).message}`)
     } finally {
       setLoading(false)
     }
@@ -61,46 +61,44 @@ export const CreateWalletForm = () => {
             control={form.control}
             render={({ field, fieldState }) => (
               <Field data-invalid={fieldState.invalid}>
-                <FieldLabel htmlFor="password">设置密码</FieldLabel>
+                <FieldLabel htmlFor="password">Password</FieldLabel>
                 <PasswordInput
                   {...field}
                   id="password"
                   aria-invalid={fieldState.invalid}
-                  placeholder="输入密码，至少8位"
+                  placeholder="At least 8 characters"
                 />
-                {fieldState.invalid && (
-                  <FieldError errors={[fieldState.error]} />
-                )}
+                {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
               </Field>
             )}
           />
+
           <Controller
             name="confirmPassword"
             control={form.control}
             render={({ field, fieldState }) => (
               <Field data-invalid={fieldState.invalid}>
-                <FieldLabel htmlFor="confirmPassword">确认密码</FieldLabel>
+                <FieldLabel htmlFor="confirmPassword">Confirm Password</FieldLabel>
                 <Input
                   {...field}
                   id="confirmPassword"
                   type="password"
                   aria-invalid={fieldState.invalid}
-                  placeholder="输入密码，至少8位"
+                  placeholder="Repeat password"
                 />
-                {fieldState.invalid && (
-                  <FieldError errors={[fieldState.error]} />
-                )}
+                {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
               </Field>
             )}
           />
         </FieldGroup>
+
         <Field>
           <LoadingButton
             type="submit"
             className="w-full"
             form="createWalletForm"
             loading={loading}>
-            创建钱包
+            Create Wallet
           </LoadingButton>
         </Field>
       </FieldSet>
@@ -109,11 +107,13 @@ export const CreateWalletForm = () => {
 }
 
 const importWalletFormSchema = z.object({
-  mnemonic: z.string().min(12, "助记词至少12个单词"),
-  password: z.string().min(8, "密码至少8位")
+  mnemonic: z.string().min(12, "Mnemonic is required"),
+  password: z.string().min(8, "Password must be at least 8 chars")
 })
+
 export const ImportMnemonicForm = () => {
-  const importWallet = useWalletStore((s) => s.importWallet)
+  const currentChain = useWalletStore((state) => state.currentChain)
+  const importWallet = useWalletStore((state) => state.importWallet)
   const form = useForm({
     resolver: zodResolver(importWalletFormSchema),
     defaultValues: {
@@ -124,14 +124,13 @@ export const ImportMnemonicForm = () => {
   const [loading, setLoading] = useState(false)
 
   const onSubmit = async (data: z.infer<typeof importWalletFormSchema>) => {
-    const { mnemonic, password } = data
     try {
       setLoading(true)
-      await importWallet(mnemonic, password)
-      toast.success("钱包导入成功")
+      await importWallet(data.mnemonic, data.password, currentChain)
+      toast.success(`Wallet imported on ${currentChain}`)
     } catch (error) {
       console.error(error)
-      toast.error("钱包导入失败")
+      toast.error(`Import failed: ${(error as Error).message}`)
     } finally {
       setLoading(false)
     }
@@ -146,46 +145,44 @@ export const ImportMnemonicForm = () => {
             control={form.control}
             render={({ field, fieldState }) => (
               <Field data-invalid={fieldState.invalid}>
-                <FieldLabel htmlFor="mnemonic">助记词</FieldLabel>
+                <FieldLabel htmlFor="mnemonic">Mnemonic</FieldLabel>
                 <Textarea
                   {...field}
                   id="mnemonic"
                   rows={4}
                   aria-invalid={fieldState.invalid}
-                  placeholder="输入助记词，至少12个单词, 用空格分隔"
+                  placeholder="Input mnemonic words separated by spaces"
                 />
-                {fieldState.invalid && (
-                  <FieldError errors={[fieldState.error]} />
-                )}
+                {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
               </Field>
             )}
           />
+
           <Controller
             name="password"
             control={form.control}
             render={({ field, fieldState }) => (
               <Field data-invalid={fieldState.invalid}>
-                <FieldLabel htmlFor="password">密码</FieldLabel>
+                <FieldLabel htmlFor="password">Password</FieldLabel>
                 <PasswordInput
                   {...field}
                   id="password"
                   aria-invalid={fieldState.invalid}
-                  placeholder="输入密码，至少8位"
+                  placeholder="Wallet password"
                 />
-                {fieldState.invalid && (
-                  <FieldError errors={[fieldState.error]} />
-                )}
+                {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
               </Field>
             )}
           />
         </FieldGroup>
+
         <Field orientation="horizontal">
           <LoadingButton
             type="submit"
             className="w-full"
             form="importWalletForm"
             loading={loading}>
-            导入钱包
+            Import Wallet
           </LoadingButton>
         </Field>
       </FieldSet>
@@ -194,12 +191,13 @@ export const ImportMnemonicForm = () => {
 }
 
 const importPrivateKeyFormSchema = z.object({
-  privateKey: z.string().min(1, "私钥不能为空"),
-  password: z.string().min(8, "密码至少8位")
+  privateKey: z.string().min(1, "Private key is required"),
+  password: z.string().min(8, "Password must be at least 8 chars")
 })
 
 export const ImportPrivateKeyForm = () => {
-  const importPrivateKey = useWalletStore((s) => s.importPrivateKey)
+  const currentChain = useWalletStore((state) => state.currentChain)
+  const importPrivateKey = useWalletStore((state) => state.importPrivateKey)
   const form = useForm({
     resolver: zodResolver(importPrivateKeyFormSchema),
     defaultValues: {
@@ -210,14 +208,13 @@ export const ImportPrivateKeyForm = () => {
   const [loading, setLoading] = useState(false)
 
   const onSubmit = async (data: z.infer<typeof importPrivateKeyFormSchema>) => {
-    const { privateKey, password } = data
     try {
       setLoading(true)
-      await importPrivateKey(privateKey, password)
-      toast.success("钱包导入成功")
+      await importPrivateKey(data.privateKey, data.password, undefined, currentChain)
+      toast.success(`Private key imported on ${currentChain}`)
     } catch (error) {
       console.error(error)
-      toast.error("钱包导入失败")
+      toast.error(`Import failed: ${(error as Error).message}`)
     } finally {
       setLoading(false)
     }
@@ -232,46 +229,44 @@ export const ImportPrivateKeyForm = () => {
             control={form.control}
             render={({ field, fieldState }) => (
               <Field data-invalid={fieldState.invalid}>
-                <FieldLabel htmlFor="privateKey">私钥</FieldLabel>
+                <FieldLabel htmlFor="privateKey">Private Key</FieldLabel>
                 <Input
                   {...field}
                   id="privateKey"
                   type="text"
                   aria-invalid={fieldState.invalid}
-                  placeholder="输入私钥，以0x开头的64位十六进制字符串"
+                  placeholder="Paste private key"
                 />
-                {fieldState.invalid && (
-                  <FieldError errors={[fieldState.error]} />
-                )}
+                {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
               </Field>
             )}
           />
+
           <Controller
             name="password"
             control={form.control}
             render={({ field, fieldState }) => (
               <Field data-invalid={fieldState.invalid}>
-                <FieldLabel htmlFor="password">密码</FieldLabel>
+                <FieldLabel htmlFor="password">Password</FieldLabel>
                 <PasswordInput
                   {...field}
                   id="password"
                   aria-invalid={fieldState.invalid}
-                  placeholder="输入密码，至少8位"
+                  placeholder="Wallet password"
                 />
-                {fieldState.invalid && (
-                  <FieldError errors={[fieldState.error]} />
-                )}
+                {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
               </Field>
             )}
           />
         </FieldGroup>
+
         <Field orientation="horizontal">
           <LoadingButton
             type="submit"
             className="w-full"
             form="importPrivateKeyForm"
             loading={loading}>
-            导入钱包
+            Import Private Key
           </LoadingButton>
         </Field>
       </FieldSet>

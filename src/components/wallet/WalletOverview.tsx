@@ -1,5 +1,4 @@
-import copyToClipboard from "copy-to-clipboard"
-import { formatEther } from "ethers"
+﻿import copyToClipboard from "copy-to-clipboard"
 import { CopyIcon, RefreshCcw } from "lucide-react"
 
 import { Button } from "~components/ui/button"
@@ -14,9 +13,24 @@ export function WalletOverview({
 }: {
   onTabChange: (value: string) => void
 }) {
-  const currentNetwork = useWalletStore((s) => s.currentNetwork)
-  const currentAccount = useWalletStore((s) => s.currentAccount)
-  const { ethBalance, refreshBalances, isLoading } = useWalletBalance()
+  const currentChain = useWalletStore((state) => state.currentChain)
+  const currentNetwork = useWalletStore(
+    (state) => state.currentNetworkByChain[state.currentChain]
+  )
+  const currentAccount = useWalletStore(
+    (state) => state.currentAccountByChain[state.currentChain]
+  )
+  const { balance, symbol, refreshBalances, isLoading } = useWalletBalance()
+
+  if (!currentAccount) {
+    return (
+      <Card className="mt-4">
+        <CardContent className="p-4 text-sm text-muted-foreground">
+          No account on {currentChain}. Go to Account tab to create/import one.
+        </CardContent>
+      </Card>
+    )
+  }
 
   return (
     <div className="w-full">
@@ -24,8 +38,8 @@ export function WalletOverview({
         <CardContent>
           <div className="p-4">
             <div className="flex items-center justify-between gap-2 mb-4">
-              <span className="text-base">当前账户</span>
-              <div>{currentNetwork?.name}</div>
+              <span className="text-base">Current Account</span>
+              <div>{currentNetwork?.name || "-"}</div>
             </div>
             <div className="flex items-center gap-3 mb-4">
               <div className="text-2xl font-bold">{currentAccount.name}</div>
@@ -47,38 +61,36 @@ export function WalletOverview({
         <CardContent>
           <div className="p-4">
             <div className="flex items-center justify-between gap-2 mb-4">
-              <span className="text-base">当前余额</span>
+              <span className="text-base">Native Balance</span>
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={refreshBalances}
+                onClick={() => void refreshBalances()}
                 disabled={isLoading}>
                 <RefreshCcw size={18} />
               </Button>
             </div>
             <div className="text-2xl font-bold flex items-center gap-2">
-              {ethBalance} ETH
+              {balance} {symbol}
               {isLoading && <Spinner />}
             </div>
           </div>
         </CardContent>
       </Card>
+
       <div className="flex items-center gap-2 mt-4 w-full">
         <Button
           size="lg"
           className="flex-1 min-w-0"
-          onClick={() => {
-            onTabChange("transfer")
-          }}>
-          转账
+          onClick={() => onTabChange("transfer")}>
+          Transfer
         </Button>
         <Button
           size="lg"
           className="flex-1 min-w-0"
-          onClick={() => {
-            onTabChange("token")
-          }}>
-          添加代币
+          onClick={() => onTabChange("token")}
+          disabled={currentChain !== "EVM"}>
+          Add Token
         </Button>
       </div>
     </div>
